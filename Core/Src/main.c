@@ -29,6 +29,7 @@
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 #include "ControlTask.h"
+
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/

@@ -8,7 +8,7 @@ constexpr float    kRawToAmp   = 3.0f / 16384.0f; // 反馈电流 ±16384 对应
 }
 
 Gm6020::Gm6020(uint8_t id)
-    : id_(id), voltage_(0),
+    : id_(id), current_cmd_(0),
       raw_angle_(0), raw_vel_rpm_(0), raw_current_(0), raw_temp_(0),
       full_turns_(0), last_raw_angle_(0) {}
 
@@ -17,7 +17,7 @@ uint32_t Gm6020::rxId() const {
 }
 
 uint32_t Gm6020::txId() const {
-    return (id_ <= 4) ? 0x1FFu : 0x2FFu;   // 电压控制帧
+    return (id_ <= 4) ? 0x1FEu : 0x2FEu;   // 电流控制帧
 }
 
 void Gm6020::decode(const uint8_t *data) {
@@ -25,8 +25,8 @@ void Gm6020::decode(const uint8_t *data) {
 
     // 跨零检测: 一圈 8192, 相邻两次采样跳变超过半圈(4096)视为跨过零点
     int16_t diff = static_cast<int16_t>(raw - last_raw_angle_);
-    if (diff > 4096)        full_turns_--;   // 8191 -> 0, 正向转过一圈
-    else if (diff < -4096)  full_turns_++;   // 0 -> 8191, 反向转过一圈
+    if (diff > 4096)        full_turns_--;   // 0 -> 8191: 反转跨过零点
+    else if (diff < -4096)  full_turns_++;   // 8191 -> 0: 正转跨过零点
 
     last_raw_angle_ = raw;
     raw_angle_      = raw;
@@ -57,20 +57,20 @@ int16_t Gm6020::velRpm() const {
     return raw_vel_rpm_;
 }
 
-void Gm6020::setVoltage(int16_t v) {
-    voltage_ = v;
+void Gm6020::setCurrent(int16_t i) {
+    current_cmd_ = i;
 }
 
-int16_t Gm6020::voltage() const {
-    return voltage_;
+int16_t Gm6020::currentCmd() const {
+    return current_cmd_;
 }
 
 void Gm6020::encode(uint8_t *data) const {
-    // 电压控制帧数据布局:
-    //   0x1FF: ID 1->[0,1]  2->[2,3]  3->[4,5]  4->[6,7]
-    //   0x2FF: ID 5->[0,1]  6->[2,3]  7->[4,5]
+    // 电流控制帧数据布局 (与电压帧一致):
+    //   0x1FE: ID 1->[0,1]  2->[2,3]  3->[4,5]  4->[6,7]
+    //   0x2FE: ID 5->[0,1]  6->[2,3]  7->[4,5]
     uint8_t index = (id_ <= 4) ? static_cast<uint8_t>((id_ - 1) * 2)
                                : static_cast<uint8_t>((id_ - 5) * 2);
-    data[index]     = static_cast<uint8_t>((voltage_ >> 8) & 0xFF);
-    data[index + 1] = static_cast<uint8_t>(voltage_ & 0xFF);
+    data[index]     = static_cast<uint8_t>((current_cmd_ >> 8) & 0xFF);
+    data[index + 1] = static_cast<uint8_t>(current_cmd_ & 0xFF);
 }
